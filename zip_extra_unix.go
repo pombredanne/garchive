@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"syscall"
@@ -34,7 +35,7 @@ func createZipUIDGidField(w io.Writer, fi os.FileInfo) (err error) {
 	return nil
 }
 
-func processZipUIDGidField(data []byte, file *zip.FileHeader) error {
+func processZipUIDGidField(data []byte, file *zip.FileHeader, target string) error {
 	var ugField ZipUIDGidField
 	err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &ugField)
 	if err != nil {
@@ -45,5 +46,5 @@ func processZipUIDGidField(data []byte, file *zip.FileHeader) error {
 		return errors.New("uid/gid data not supported")
 	}
 
-	return os.Lchown(file.Name, int(ugField.UID), int(ugField.Gid))
+	return os.Lchown(fmt.Sprintf("%s/%s", target, file.Name), int(ugField.UID), int(ugField.Gid))
 }

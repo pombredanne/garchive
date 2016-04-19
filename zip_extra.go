@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -47,7 +48,7 @@ func createZipTimestampField(w io.Writer, fi os.FileInfo) (err error) {
 	return
 }
 
-func processZipTimestampField(data []byte, file *zip.FileHeader) error {
+func processZipTimestampField(data []byte, file *zip.FileHeader, target string) error {
 	if !file.Mode().IsDir() && !file.Mode().IsRegular() {
 		return nil
 	}
@@ -61,7 +62,7 @@ func processZipTimestampField(data []byte, file *zip.FileHeader) error {
 	if (tsField.Flags & 1) == 1 {
 		modTime := time.Unix(int64(tsField.ModTime), 0)
 		acTime := time.Now()
-		return os.Chtimes(file.Name, acTime, modTime)
+		return os.Chtimes(fmt.Sprintf("%s/%s", target, file.Name), acTime, modTime)
 	}
 
 	return nil
@@ -93,7 +94,7 @@ func readZipExtraField(r io.Reader) (field ZipExtraField, data []byte, err error
 	return
 }
 
-func processZipExtra(file *zip.FileHeader) error {
+func processZipExtra(file *zip.FileHeader, target string) error {
 	if len(file.Extra) == 0 {
 		return nil
 	}
@@ -109,9 +110,9 @@ func processZipExtra(file *zip.FileHeader) error {
 
 		switch field.Type {
 		case ZipUIDGidFieldType:
-			err = processZipUIDGidField(data, file)
+			err = processZipUIDGidField(data, file, target)
 		case ZipTimestampFieldType:
-			err = processZipTimestampField(data, file)
+			err = processZipTimestampField(data, file, target)
 		}
 		if err != nil {
 			return err

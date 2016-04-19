@@ -31,7 +31,7 @@ func TestExtractZipFile(t *testing.T) {
 	writeArchive(t, tempFile)
 	tempFile.Close()
 
-	err = ExtractZipFile(tempFile.Name())
+	err = ExtractZipFile(tempFile.Name(), "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -49,6 +49,6 @@ func TestExtractZipFile(t *testing.T) {
 }
 
 func TestExtractZipFileNotFound(t *testing.T) {
-	err := ExtractZipFile("non_existing_zip_file.zip")
+	err := ExtractZipFile("non_existing_zip_file.zip", "")
 	assert.Error(t, err)
 }

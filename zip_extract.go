@@ -7,11 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"fmt"
 	"github.com/Sirupsen/logrus"
 )
 
-func extractZipDirectoryEntry(file *zip.File) (err error) {
-	err = os.Mkdir(file.Name, file.Mode().Perm())
+func extractZipDirectoryEntry(file *zip.File, target string) (err error) {
+	err = os.Mkdir(fmt.Sprintf("%s/%s", target, file.Name), file.Mode().Perm())
 
 	// The error that directory does exists is not a error for us
 	if os.IsExist(err) {
@@ -20,7 +21,7 @@ func extractZipDirectoryEntry(file *zip.File) (err error) {
 	return
 }
 
-func extractZipSymlinkEntry(file *zip.File) (err error) {
+func extractZipSymlinkEntry(file *zip.File, target string) (err error) {
 	var data []byte
 	in, err := file.Open()
 	if err != nil {
@@ -34,12 +35,13 @@ func extractZipSymlinkEntry(file *zip.File) (err error) {
 	}
 
 	// Remove symlink before creating a new one, otherwise we can error that file does exist
-	os.Remove(file.Name)
-	err = os.Symlink(string(data), file.Name)
+	os.Remove(fmt.Sprintf("%s/%s", target, file.Name))
+	err = os.Symlink(fmt.Sprintf("%s/%s", target, string(data)), fmt.Sprintf("%s/%s", target, file.Name))
+
 	return
 }
 
-func extractZipFileEntry(file *zip.File) (err error) {
+func extractZipFileEntry(file *zip.File, target string) (err error) {
 	var out *os.File
 	in, err := file.Open()
 	if err != nil {
@@ -49,7 +51,7 @@ func extractZipFileEntry(file *zip.File) (err error) {
 
 	// Remove file before creating a new one, otherwise we can error that file does exist
 	os.Remove(file.Name)
-	out, err = os.OpenFile(file.Name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode().Perm())
+	out, err = os.OpenFile(fmt.Sprintf("%s/%s", target, file.Name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode().Perm())
 	if err != nil {
 		return err
 	}
@@ -59,30 +61,36 @@ func extractZipFileEntry(file *zip.File) (err error) {
 	return
 }
 
-func extractZipFile(file *zip.File) (err error) {
+func extractZipFile(file *zip.File, target string) (err error) {
+
 	// Create all parents to extract the file
-	os.MkdirAll(filepath.Dir(file.Name), 0777)
+	os.MkdirAll(fmt.Sprintf("%s/%s", target, filepath.Dir(file.Name)), 0777)
 
 	switch file.Mode() & os.ModeType {
 	case os.ModeDir:
-		err = extractZipDirectoryEntry(file)
+		err = extractZipDirectoryEntry(file, target)
 
 	case os.ModeSymlink:
-		err = extractZipSymlinkEntry(file)
+		err = extractZipSymlinkEntry(file, target)
 
 	case os.ModeNamedPipe, os.ModeSocket, os.ModeDevice:
 		// Ignore the files that of these types
 		logrus.Warningln("File ignored: %q", file.Name)
 
 	default:
-		err = extractZipFileEntry(file)
+		err = extractZipFileEntry(file, target)
 	}
 	return
 }
 
-func ExtractZipArchive(archive *zip.Reader) error {
+func ExtractZipArchive(archive *zip.Reader, target string) error {
+
+	if len(target) == 0 {
+		target = "."
+	}
+
 	for _, file := range archive.File {
-		if err := extractZipFile(file); err != nil {
+		if err := extractZipFile(file, target); err != nil {
 			logrus.Warningf("%s: %s", file.Name, err)
 		}
 	}
@@ -94,19 +102,19 @@ func ExtractZipArchive(archive *zip.Reader) error {
 		}
 
 		// Process zip metadata
-		if err := processZipExtra(&file.FileHeader); err != nil {
+		if err := processZipExtra(&file.FileHeader, target); err != nil {
 			logrus.Warningf("%s: %s", file.Name, err)
 		}
 	}
 	return nil
 }
 
-func ExtractZipFile(fileName string) error {
+func ExtractZipFile(fileName, target string) error {
 	archive, err := zip.OpenReader(fileName)
 	if err != nil {
 		return err
 	}
 	defer archive.Close()
 
-	return ExtractZipArchive(&archive.Reader)
+	return ExtractZipArchive(&archive.Reader, target)
 }

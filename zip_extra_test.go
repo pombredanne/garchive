@@ -43,7 +43,7 @@ func TestProcessZipExtra(t *testing.T) {
 	defer os.Remove(fi.Name())
 	assert.NoError(t, err)
 
-	err = processZipExtra(zipFile)
+	err = processZipExtra(zipFile, ".")
 	assert.NoError(t, err)
 
 	fi2, _ := testFile.Stat()
